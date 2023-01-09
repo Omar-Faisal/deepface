@@ -11,8 +11,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import pickle
+import fire
 
-from deepface.basemodels import VGGFace, OpenFace, Facenet, Facenet512, FbDeepFace, DeepID, DlibWrapper, ArcFace, SFace, Boosting
+from deepface.basemodels import VGGFace, OpenFace, Facenet, Facenet512, FbDeepFace, DeepID, DlibWrapper, ArcFace, Boosting, SFaceWrapper
 from deepface.extendedmodels import Age, Gender, Race, Emotion
 from deepface.commons import functions, realtime, distance as dst
 
@@ -46,7 +47,7 @@ def build_model(model_name):
 		'DeepID': DeepID.loadModel,
 		'Dlib': DlibWrapper.loadModel,
 		'ArcFace': ArcFace.loadModel,
-		'SFace': SFace.load_model,
+		'SFace': SFaceWrapper.load_model,
 		'Emotion': Emotion.loadModel,
 		'Age': Age.loadModel,
 		'Gender': Gender.loadModel,
@@ -88,7 +89,7 @@ def verify(img1_path, img2_path = '', model_name = 'VGG-Face', distance_metric =
 
 			model = DeepFace.build_model('VGG-Face')
 
-		enforce_detection (boolean): If no face could not be detected in an image, then this function will return exception by default. Set this to False not to have this exception. This might be convenient for low resolution images.
+		enforce_detection (boolean): If any face could not be detected in an image, then verify function will return exception. Set this to False not to have this exception. This might be convenient for low resolution images.
 
 		detector_backend (string): set face detector backend as retinaface, mtcnn, opencv, ssd or dlib
 
@@ -283,7 +284,7 @@ def analyze(img_path, actions = ('emotion', 'age', 'gender', 'race') , models = 
 			models['emotion'] = DeepFace.build_model('Emotion')
 			models['race'] = DeepFace.build_model('Race')
 
-		enforce_detection (boolean): The function throws exception if no face detected by default. Set this to False if you don't want to get exception. This might be convenient for low resolution images.
+		enforce_detection (boolean): The function throws exception if a face could not be detected. Set this to True if you don't want to get exception. This might be convenient for low resolution images.
 
 		detector_backend (string): set face detector backend as retinaface, mtcnn, opencv, ssd or dlib.
 
@@ -294,11 +295,7 @@ def analyze(img_path, actions = ('emotion', 'age', 'gender', 'race') , models = 
 		{
 			"region": {'x': 230, 'y': 120, 'w': 36, 'h': 45},
 			"age": 28.66,
-			"dominant_gender": "Woman",
-			"gender": {
-				'Woman': 99.99407529830933,
-				'Man': 0.005928758764639497,
-			}
+			"gender": "woman",
 			"dominant_emotion": "neutral",
 			"emotion": {
 				'sad': 37.65260875225067,
@@ -321,9 +318,6 @@ def analyze(img_path, actions = ('emotion', 'age', 'gender', 'race') , models = 
 		}
 
 	"""
-	
-	if type(actions) == str:
-		actions = (actions,)
 
 	actions = list(actions)
 	if not models:
@@ -342,28 +336,28 @@ def analyze(img_path, actions = ('emotion', 'age', 'gender', 'race') , models = 
 		if 'emotion' in built_models and 'emotion' not in actions:
 			actions.append('emotion')
 
-		if 'age' in built_models and 'age' not in actions:
-			actions.append('age')
+		# if 'age' in built_models and 'age' not in actions:
+		# 	actions.append('age')
 
-		if 'gender' in built_models and 'gender' not in actions:
-			actions.append('gender')
+		# if 'gender' in built_models and 'gender' not in actions:
+		# 	actions.append('gender')
 
-		if 'race' in built_models and 'race' not in actions:
-			actions.append('race')
+		# if 'race' in built_models and 'race' not in actions:
+		# 	actions.append('race')
 
 	#---------------------------------
 
 	if 'emotion' in actions and 'emotion' not in built_models:
 		models['emotion'] = build_model('Emotion')
 
-	if 'age' in actions and 'age' not in built_models:
-		models['age'] = build_model('Age')
+	# if 'age' in actions and 'age' not in built_models:
+	# 	models['age'] = build_model('Age')
 
-	if 'gender' in actions and 'gender' not in built_models:
-		models['gender'] = build_model('Gender')
+	# if 'gender' in actions and 'gender' not in built_models:
+	# 	models['gender'] = build_model('Gender')
 
-	if 'race' in actions and 'race' not in built_models:
-		models['race'] = build_model('Race')
+	# if 'race' in actions and 'race' not in built_models:
+	# 	models['race'] = build_model('Race')
 
 	#---------------------------------
 
@@ -396,9 +390,9 @@ def analyze(img_path, actions = ('emotion', 'age', 'gender', 'race') , models = 
 
 			if action == 'emotion':
 				emotion_labels = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
-				img, region = functions.preprocess_face(img = img_path, target_size = (48, 48), grayscale = True, enforce_detection = enforce_detection, detector_backend = detector_backend, return_region = True)
+				img = functions.preprocess_face(img = img_path, target_size = (48, 48), grayscale = True, enforce_detection = enforce_detection, detector_backend = detector_backend, return_region = False)
 
-				emotion_predictions = models['emotion'].predict(img, verbose=0)[0,:]
+				emotion_predictions = models['emotion'].predict(img)[0,:]
 
 				sum_of_predictions = emotion_predictions.sum()
 
@@ -411,54 +405,51 @@ def analyze(img_path, actions = ('emotion', 'age', 'gender', 'race') , models = 
 
 				resp_obj["dominant_emotion"] = emotion_labels[np.argmax(emotion_predictions)]
 
-			elif action == 'age':
-				if img_224 is None:
-					img_224, region = functions.preprocess_face(img = img_path, target_size = (224, 224), grayscale = False, enforce_detection = enforce_detection, detector_backend = detector_backend, return_region = True)
+			# elif action == 'age':
+			# 	if img_224 is None:
+			# 		img_224, region = functions.preprocess_face(img = img_path, target_size = (224, 224), grayscale = False, enforce_detection = enforce_detection, detector_backend = detector_backend, return_region = True)
 
-				age_predictions = models['age'].predict(img_224, verbose=0)[0,:]
-				apparent_age = Age.findApparentAge(age_predictions)
+			# 	age_predictions = models['age'].predict(img_224)[0,:]
+			# 	apparent_age = Age.findApparentAge(age_predictions)
 
-				resp_obj["age"] = int(apparent_age) #int cast is for the exception - object of type 'float32' is not JSON serializable
+			# 	resp_obj["age"] = int(apparent_age) #int cast is for the exception - object of type 'float32' is not JSON serializable
 
-			elif action == 'gender':
+			# elif action == 'gender':
+			# 	if img_224 is None:
+			# 		img_224, region = functions.preprocess_face(img = img_path, target_size = (224, 224), grayscale = False, enforce_detection = enforce_detection, detector_backend = detector_backend, return_region = True)
 
-				if img_224 is None:
-					img_224, region = functions.preprocess_face(img = img_path, target_size = (224, 224), grayscale = False, enforce_detection = enforce_detection, detector_backend = detector_backend, return_region = True)
+			# 	gender_prediction = models['gender'].predict(img_224)[0,:]
 
-				gender_predictions = models['gender'].predict(img_224, verbose=0)[0,:]
+			# 	if np.argmax(gender_prediction) == 0:
+			# 		gender = "Woman"
+			# 	elif np.argmax(gender_prediction) == 1:
+			# 		gender = "Man"
 
-				gender_labels = ["Woman", "Man"]
-				resp_obj["gender"] = {}
+			# 	resp_obj["gender"] = gender
 
-				for i, gender_label in enumerate(gender_labels):
-					gender_prediction = 100 * gender_predictions[i]
-					resp_obj["gender"][gender_label] = gender_prediction
+			# elif action == 'race':
+			# 	if img_224 is None:
+			# 		img_224, region = functions.preprocess_face(img = img_path, target_size = (224, 224), grayscale = False, enforce_detection = enforce_detection, detector_backend = detector_backend, return_region = True) #just emotion model expects grayscale images
+			# 	race_predictions = models['race'].predict(img_224)[0,:]
+			# 	race_labels = ['asian', 'indian', 'black', 'white', 'middle eastern', 'latino hispanic']
 
-				resp_obj["dominant_gender"] = gender_labels[np.argmax(gender_predictions)]
+			# 	sum_of_predictions = race_predictions.sum()
 
-			elif action == 'race':
-				if img_224 is None:
-					img_224, region = functions.preprocess_face(img = img_path, target_size = (224, 224), grayscale = False, enforce_detection = enforce_detection, detector_backend = detector_backend, return_region = True) #just emotion model expects grayscale images
-				race_predictions = models['race'].predict(img_224, verbose=0)[0,:]
-				race_labels = ['asian', 'indian', 'black', 'white', 'middle eastern', 'latino hispanic']
+			# 	resp_obj["race"] = {}
+			# 	for i in range(0, len(race_labels)):
+			# 		race_label = race_labels[i]
+			# 		race_prediction = 100 * race_predictions[i] / sum_of_predictions
+			# 		resp_obj["race"][race_label] = race_prediction
 
-				sum_of_predictions = race_predictions.sum()
-
-				resp_obj["race"] = {}
-				for i in range(0, len(race_labels)):
-					race_label = race_labels[i]
-					race_prediction = 100 * race_predictions[i] / sum_of_predictions
-					resp_obj["race"][race_label] = race_prediction
-
-				resp_obj["dominant_race"] = race_labels[np.argmax(race_predictions)]
+			# 	resp_obj["dominant_race"] = race_labels[np.argmax(race_predictions)]
 
 			#-----------------------------
 
-			if is_region_set != True and region:
-				resp_obj["region"] = {}
-				is_region_set = True
-				for i, parameter in enumerate(region_labels):
-					resp_obj["region"][parameter] = int(region[i]) #int cast is for the exception - object of type 'float32' is not JSON serializable
+			# if is_region_set != True:
+			# 	resp_obj["region"] = {}
+			# 	is_region_set = True
+			# 	for i, parameter in enumerate(region_labels):
+			# 		resp_obj["region"][parameter] = int(region[i]) #int cast is for the exception - object of type 'float32' is not JSON serializable
 
 		#---------------------------------
 
@@ -468,8 +459,14 @@ def analyze(img_path, actions = ('emotion', 'age', 'gender', 'race') , models = 
 			return resp_obj
 
 	if bulkProcess == True:
-		return resp_objects
 
+		resp_obj = {}
+
+		for i in range(0, len(resp_objects)):
+			resp_item = resp_objects[i]
+			resp_obj["instance_%d" % (i+1)] = resp_item
+
+		return resp_obj
 
 def find(img_path, db_path, model_name ='VGG-Face', distance_metric = 'cosine', model = None, enforce_detection = True, detector_backend = 'opencv', align = True, prog_bar = True, normalization = 'base', silent=False):
 
@@ -768,12 +765,7 @@ def represent(img_path, model_name = 'VGG-Face', model = None, enforce_detection
 	#---------------------------------
 
 	#represent
-	if "keras" in str(type(model)):
-		#new tf versions show progress bar and it is annoying
-		embedding = model.predict(img, verbose=0)[0].tolist()
-	else:
-		#SFace is not a keras model and it has no verbose argument
-		embedding = model.predict(img)[0].tolist()
+	embedding = model.predict(img)[0].tolist()
 
 	return embedding
 
@@ -834,5 +826,4 @@ def detectFace(img_path, target_size = (224, 224), detector_backend = 'opencv', 
 functions.initialize_folder()
 
 def cli():
-	import fire
 	fire.Fire()
