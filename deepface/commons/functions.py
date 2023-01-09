@@ -83,7 +83,7 @@ def load_image(img):
 		img = loadBase64Img(img)
 
 	elif url_img:
-		img = np.array(Image.open(requests.get(img, stream=True).raw).convert('RGB'))
+		img = np.array(Image.open(requests.get(img, stream=True).raw))
 
 	elif exact_image != True: #image path passed as input
 		if os.path.isfile(img) != True:
@@ -95,7 +95,7 @@ def load_image(img):
 
 def detect_face(img, detector_backend = 'opencv', grayscale = False, enforce_detection = True, align = True):
 
-	img_region = [0, 0, img.shape[1], img.shape[0]]
+	img_region = [0, 0, img.shape[0], img.shape[1]]
 
 	#----------------------------------------------
 	#people would like to skip detection and alignment if they already have pre-processed images
@@ -110,7 +110,7 @@ def detect_face(img, detector_backend = 'opencv', grayscale = False, enforce_det
 	face_detector = FaceDetector.build_model(detector_backend)
 
 	try:
-		detected_face, img_region, _ = FaceDetector.detect_face(face_detector, detector_backend, img, align)
+		detected_face, img_region = FaceDetector.detect_face(face_detector, detector_backend, img, align)
 	except: #if detected face shape is (0, 0) and alignment cannot be performed, this block will be run
 		detected_face = None
 
@@ -175,7 +175,7 @@ def preprocess_face(img, target_size=(224, 224), grayscale = False, enforce_dete
 	img = load_image(img)
 	base_img = img.copy()
 
-	img, region = detect_face(img = img, detector_backend = detector_backend, grayscale = grayscale, enforce_detection = enforce_detection, align = align)
+	# img, region = detect_face(img = img, detector_backend = detector_backend, grayscale = grayscale, enforce_detection = enforce_detection, align = align)
 
 	#--------------------------
 
